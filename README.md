@@ -377,7 +377,7 @@ Feature: Buying and Selling Stocks
     Then ...
 ```
 
-Finally, you may want some of your BDDs to **run more than onc**e, each time with different data.
+Finally, you may want some of your BDDs to **run more than once**, each time with different data.
 To that end you may add an **`Examples`** section, with any number of rows and columns. For each
 row, the BDD should run again, with the values from the row being passed to the code.
 
