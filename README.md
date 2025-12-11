@@ -17,8 +17,8 @@
 
 > _This package is brought to you by <a href="https://www.linkedin.com/in/zhammoud/">Zaher
 Hammoud</a> and me, <a href="https://github.com/marcglasberg">Marcelo Glasberg</a>._
-> 
-> Note there is also a **npm version** of this package for <a href="https://www.npmjs.com/package/easy-bdd-tool-jest"> 
+>
+> Note there is also a **npm version** of this package for <a href="https://www.npmjs.com/package/easy-bdd-tool-jest">
 > JavaScript, TypeScript, React, React Native, Node etc</a>.
 
 This package supports and simplifies <a href='https://en.wikipedia.org/wiki/Behavior-driven_development'>Behavior
@@ -226,8 +226,8 @@ Let's do a quick BDD recap, and then create some BDDs for a real app that's incl
 
 Behavior-Driven Development (BDD) fosters an environment where teams employ conversation and
 specific examples to create a mutual understanding of the intended features of an application.
-This approach aligns closely with the principles of *Specification by Example* and *Acceptance
-Tests*, all of which can be implemented with this package.
+This approach aligns closely with the principles of *Specification Driven Development*,
+*Specification by Example* and *Acceptance Tests*, all of which can be implemented with this package.
 
 BDD serves multiple purposes: It can be used as both acceptance tests and integration tests,
 ensuring that the developed software meets the customer's requirements.

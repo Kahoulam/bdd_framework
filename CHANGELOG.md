@@ -1,4 +1,4 @@
-## 4.0.6
+## 4.0.7
 
 * Sponsored by [MyText.ai](https://mytext.ai)
 
