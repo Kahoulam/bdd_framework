@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:collection/collection.dart';
 
 import 'bdd_base.dart' as bdd_framework show val;
 import 'bdd_base.dart' show BddTableTerm;
@@ -64,7 +64,7 @@ class BddTableRows {
       identical(this, other) ||
       (other is BddTableRows) &&
           (runtimeType == other.runtimeType) &&
-          listEquals(_values, other._values);
+          const ListEquality().equals(_values, other._values);
 
   @override
   int get hashCode => _values.hashCode;
@@ -101,7 +101,7 @@ class BddMultipleTableValues {
       identical(this, other) ||
       (other is BddMultipleTableValues) &&
           (runtimeType == other.runtimeType) &&
-          mapEquals(_tables, other._tables);
+          const MapEquality().equals(_tables, other._tables);
 
   @override
   int get hashCode => _tables.hashCode;
@@ -133,7 +133,7 @@ class BddTableValues {
       identical(this, other) ||
       (other is BddTableValues) &&
           (runtimeType == other.runtimeType) &&
-          mapEquals(_map, other._map);
+          const MapEquality().equals(_map, other._map);
 
   @override
   int get hashCode => _map.hashCode;

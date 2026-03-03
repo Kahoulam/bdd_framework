@@ -5,11 +5,10 @@ import 'dart:math';
 
 import 'package:characters/characters.dart';
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
-import "package:flutter_test/flutter_test.dart";
 import "package:meta/meta.dart";
-
+import 'package:test/test.dart';
 import 'bdd_context.dart';
+part 'bdd_runner.dart';
 
 /// This interface helps to format values in Examples and Tables.
 /// If a value implements the [BddDescribe] interface, or if it has a
@@ -58,7 +57,7 @@ class row {
           v14,
           v15,
           v16
-        ].whereNotNull().toList();
+        ].nonNulls.toList();
 }
 
 class val {
@@ -201,6 +200,35 @@ abstract class _BaseTerm {
 }
 
 enum _Variation { term, and, but, note }
+
+/// A marker mixin to indicate that a [_BaseTerm] can act as a trigger to run
+/// the test.
+///
+/// Classes that mix in [BddRunnable] become valid targets for runner extensions
+/// (e.g., `BddDartTestRunner`, `BddFlutterTestRunner`) to attach a `.run()`
+/// method. Only terms that represent a valid end-of-chain position in the BDD
+/// fluent API should mix in this mixin — for example, [BddThen], [BddExample],
+/// and their corresponding code terms like [_ThenCode].
+///
+/// [BddScenario] intentionally does **not** mix in [BddRunnable], since a
+/// scenario without steps is not a valid test.
+mixin BddRunnable on _BaseTerm {}
+
+/// A mixin that enables a [_BaseTerm] to have executable code blocks attached
+/// to it via runner-specific extensions.
+///
+/// Runner extensions (e.g., `BddDartTestCodeable`) call [addCode] which creates
+/// the corresponding internal code term and returns it. The type parameter [T]
+/// represents the concrete code term type returned (e.g., `_GivenCode`), allowing
+/// the runner extension to preserve the fluent chain's static type.
+mixin BddCodeable<T> on _BaseTerm {
+  /// Creates and registers the appropriate code term for this BDD step.
+  ///
+  /// Each mixing class implements this to return its corresponding code term.
+  /// Use `.code()` from a runner import instead of calling this directly.
+  @internal
+  T addCode(CodeRun codeRun);
+}
 
 abstract class BddTerm extends _BaseTerm {
   //
@@ -359,8 +387,8 @@ class BddFramework {
 
   /// A Bdd may have 0, 1, or more tables (which are not examples).
   List<BddTableTerm> tables() =>
-  // TODO: This was refactored, and BddExample is not of type BddTableTerm anymore.
-  // TODO: Can remove the where.
+      // TODO: This was refactored, and BddExample is not of type BddTableTerm anymore.
+      // TODO: Can remove the where.
       allTerms<BddTableTerm>().where((t) => t is! BddExample).toList();
 
   /// The example, if it exists, may have any number of rows.
@@ -495,7 +523,10 @@ class BddScenario extends BddTerm {
       super.toString(config);
 }
 
-class BddGiven extends BddTerm {
+class BddGiven extends BddTerm with BddCodeable<_GivenCode>, BddRunnable {
+  @override
+  _GivenCode addCode(CodeRun codeRun) => _GivenCode(bdd, codeRun);
+
   BddGiven(BddFramework bdd, String text) : super(bdd, text, _Variation.term);
 
   BddGiven._(BddFramework bdd, String text, _Variation variation)
@@ -585,16 +616,17 @@ class BddGiven extends BddTerm {
   /// An example is, "Then I should be redirected to the dashboard".
   BddThen then(String text) => BddThen(bdd, text);
 
-  _GivenCode code(CodeRun code) => _GivenCode(bdd, code);
-
   @override
   // ignore: unnecessary_overrides
   String toString([BddConfig config = BddConfig._default]) =>
       super.toString(config);
 }
 
-class _GivenCode extends BddCodeTerm {
+class _GivenCode extends BddCodeTerm with BddCodeable<_GivenCode>, BddRunnable {
   _GivenCode(BddFramework bdd, CodeRun code) : super(bdd, code);
+
+  @override
+  _GivenCode addCode(CodeRun codeRun) => _GivenCode(bdd, codeRun);
 
   /// A table must have a name and rows. The name is necessary if you want to
   /// read the values from it later (if not, just pass an empty string).
@@ -632,11 +664,12 @@ class _GivenCode extends BddCodeTerm {
   /// "When I click the 'Submit' button" describes the action taken after the
   /// initial context is set by the 'Given' step.
   BddWhen when(String text) => BddWhen(bdd, text);
-
-  _GivenCode code(CodeRun code) => _GivenCode(bdd, code);
 }
 
-class BddWhen extends BddTerm {
+class BddWhen extends BddTerm with BddCodeable<_WhenCode>, BddRunnable {
+  @override
+  _WhenCode addCode(CodeRun codeRun) => _WhenCode(bdd, codeRun);
+
   BddWhen(BddFramework bdd, String text) : super(bdd, text, _Variation.term);
 
   BddWhen._(BddFramework bdd, String text, _Variation variation)
@@ -702,19 +735,18 @@ class BddWhen extends BddTerm {
   /// An example is, "Then I should be redirected to the dashboard".
   BddThen then(String text) => BddThen(bdd, text);
 
-  _WhenCode code(CodeRun code) => _WhenCode(bdd, code);
-
-  /// Should be used to actually provide the code that runs the BDD.
-  void run(CodeRun code) => _Run().run(bdd, code);
-
   @override
+
   // ignore: unnecessary_overrides
   String toString([BddConfig config = BddConfig._default]) =>
       super.toString(config);
 }
 
-class _WhenCode extends BddCodeTerm {
+class _WhenCode extends BddCodeTerm with BddCodeable<_WhenCode>, BddRunnable {
   _WhenCode(BddFramework bdd, CodeRun code) : super(bdd, code);
+
+  @override
+  _WhenCode addCode(CodeRun codeRun) => _WhenCode(bdd, codeRun);
 
   /// A table must have a name and rows. The name is necessary if you want to
   /// read the values from it later (if not, just pass an empty string).
@@ -748,15 +780,13 @@ class _WhenCode extends BddCodeTerm {
   BddWhen note(String text) => BddWhen._(bdd, text, _Variation.note);
 
   /// This keyword is used to describe the expected outcome or result after the
-  /// 'When' step is executed. It's used to assert that a certain outcome should
-  /// occur, which helps to validate whether the system behaves as expected.
-  /// An example is, "Then I should be redirected to the dashboard".
   BddThen then(String text) => BddThen(bdd, text);
-
-  _WhenCode code(CodeRun code) => _WhenCode(bdd, code);
 }
 
-class BddThen extends BddTerm {
+class BddThen extends BddTerm with BddCodeable<_ThenCode>, BddRunnable {
+  @override
+  _ThenCode addCode(CodeRun codeRun) => _ThenCode(bdd, codeRun);
+
   BddThen(BddFramework bdd, String text) : super(bdd, text, _Variation.term);
 
   BddThen._(BddFramework bdd, String text, _Variation variation)
@@ -891,11 +921,6 @@ class BddThen extends BddTerm {
       BddExample(bdd, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13,
           v14, v15);
 
-  _ThenCode code(CodeRun code) => _ThenCode(bdd, code);
-
-  /// Should be used to actually provide the code that runs the BDD.
-  void run(CodeRun code) => _Run().run(bdd, code);
-
   @visibleForTesting
   BddFramework testRun(CodeRun code, BddReporter reporter) {
     _TestRun(code, reporter).run(bdd);
@@ -908,8 +933,11 @@ class BddThen extends BddTerm {
       super.toString(config);
 }
 
-class _ThenCode extends BddCodeTerm {
+class _ThenCode extends BddCodeTerm with BddCodeable<_ThenCode>, BddRunnable {
   _ThenCode(BddFramework bdd, CodeRun code) : super(bdd, code);
+
+  @override
+  _ThenCode addCode(CodeRun codeRun) => _ThenCode(bdd, codeRun);
 
   /// A table must have a name and rows. The name is necessary if you want to
   /// read the values from it later (if not, just pass an empty string).
@@ -1017,11 +1045,6 @@ class _ThenCode extends BddCodeTerm {
   /// making it easier for others to understand the purpose and scope of the test.
   BddWhen note(String text) => BddWhen._(bdd, text, _Variation.note);
 
-  _ThenCode code(CodeRun code) => _ThenCode(bdd, code);
-
-  /// Should be used to actually provide the code that runs the BDD.
-  void run(CodeRun code) => _Run().run(bdd, code);
-
   @visibleForTesting
   BddFramework testRun(CodeRun code, BddReporter reporter) {
     _TestRun(code, reporter).run(bdd);
@@ -1037,9 +1060,6 @@ abstract class BddTableTerm extends BddTerm {
 
   BddTableTerm(BddFramework bdd, this.tableName)
       : super(bdd, '', _Variation.term);
-
-  /// Should be used to actually provide the code that runs the BDD.
-  void run(CodeRun code) => _Run().run(bdd, code);
 
   /// Here we have something like:
   /// [
@@ -1124,7 +1144,7 @@ abstract class BddTableTerm extends BddTerm {
       suffix(config);
 }
 
-class BddExample extends BddTerm {
+class BddExample extends BddTerm with BddRunnable {
   //
   BddExample(
       BddFramework bdd,
@@ -1145,15 +1165,12 @@ class BddExample extends BddTerm {
       val? v15)
       : super(bdd, '', _Variation.term) {
     var set = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15]
-        .whereNotNull()
+        .nonNulls
         .toSet();
     rows.add(set);
   }
 
   final List<Set<val>> rows = [];
-
-  /// Should be used to actually provide the code that runs the BDD.
-  void run(CodeRun code) => _Run().run(bdd, code);
 
   /// Here we have something like:
   /// [
@@ -1334,7 +1351,7 @@ class BddExample extends BddTerm {
     val? v15,
   ]) {
     rows.add([v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15]
-        .whereNotNull()
+        .nonNulls
         .toSet());
     return this;
   }
@@ -1359,7 +1376,10 @@ class BddExample extends BddTerm {
       suffix(config);
 }
 
-class BddGivenTable extends BddTableTerm {
+class BddGivenTable extends BddTableTerm with BddCodeable<_GivenCode> {
+  @override
+  _GivenCode addCode(CodeRun codeRun) => _GivenCode(bdd, codeRun);
+
   //
   BddGivenTable(
     BddFramework bdd,
@@ -1398,7 +1418,7 @@ class BddGivenTable extends BddTableTerm {
       row14,
       row15,
       row16
-    ].whereNotNull());
+    ].nonNulls);
   }
 
   /// This keyword is used to extend a 'Given', 'When', or 'Then' step.
@@ -1431,20 +1451,22 @@ class BddGivenTable extends BddTableTerm {
   /// initial context is set by the 'Given' step.
   BddWhen when(String text) => BddWhen(bdd, text);
 
-  _GivenCode code(CodeRun code) => _GivenCode(bdd, code);
-
   @override
   // ignore: unnecessary_overrides
   String toString([BddConfig config = BddConfig._default]) =>
       super.toString(config);
 }
 
-class BddWhenTable extends BddTableTerm {
+class BddWhenTable extends BddTableTerm
+    with BddCodeable<_WhenCode>, BddRunnable {
+  @override
+  _WhenCode addCode(CodeRun codeRun) => _WhenCode(bdd, codeRun);
+
   //
   BddWhenTable(BddFramework bdd, String tableName, row row1,
       [row? row2, row? row3, row? row4])
       : super(bdd, tableName) {
-    rows.addAll([row1, row2, row3, row4].whereNotNull());
+    rows.addAll([row1, row2, row3, row4].nonNulls);
   }
 
   /// This keyword is used to extend a 'Given', 'When', or 'Then' step.
@@ -1477,20 +1499,22 @@ class BddWhenTable extends BddTableTerm {
   /// An example is, "Then I should be redirected to the dashboard".
   BddThen then(String text) => BddThen(bdd, text);
 
-  _WhenCode code(CodeRun code) => _WhenCode(bdd, code);
-
   @override
   // ignore: unnecessary_overrides
   String toString([BddConfig config = BddConfig._default]) =>
       super.toString(config);
 }
 
-class BddThenTable extends BddTableTerm {
+class BddThenTable extends BddTableTerm
+    with BddCodeable<_ThenCode>, BddRunnable {
+  @override
+  _ThenCode addCode(CodeRun codeRun) => _ThenCode(bdd, codeRun);
+
   //
   BddThenTable(BddFramework bdd, String tableName, row row1,
       [row? row2, row? row3, row? row4])
       : super(bdd, tableName) {
-    rows.addAll([row1, row2, row3, row4].whereNotNull());
+    rows.addAll([row1, row2, row3, row4].nonNulls);
   }
 
   /// This keyword is used to extend a 'Given', 'When', or 'Then' step.
@@ -1592,16 +1616,10 @@ class BddThenTable extends BddTableTerm {
       BddExample(bdd, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13,
           v14, v15);
 
-  _ThenCode code(CodeRun code) => _ThenCode(bdd, code);
-
   @override
   // ignore: unnecessary_overrides
   String toString([BddConfig config = BddConfig._default]) =>
       super.toString(config);
-
-  /// Should be used to actually provide the code that runs the BDD.
-  @override
-  void run(CodeRun code) => _Run().run(bdd, code);
 
   @visibleForTesting
   BddFramework testRun(CodeRun code, BddReporter reporter) {
@@ -1726,7 +1744,7 @@ abstract class BddReporter {
   ]) {
     _reporters
       ..clear()
-      ..addAll([r1, r2, r3, r4, r5].whereNotNull());
+      ..addAll([r1, r2, r3, r4, r5].nonNulls);
   }
 
   static Future<void> reportAll() async {
@@ -1799,208 +1817,7 @@ class _RunInfo {
   bool overflowIsSetUp = false;
 }
 
-typedef CodeRun = FutureOr<void> Function(BddContext ctx)?;
-
-/// This will run with the global reporter/runInfo.
-class _Run {
-  //
-  void run(BddFramework bdd, CodeRun code) {
-    //
-    // Add the code to the BDD, as a ThenCode.
-    _ThenCode(bdd, code);
-
-    BddReporter._reporters.forEach((_reporter) {
-      _reporter._addBdd(bdd);
-    });
-
-    int numberOfExamples = bdd.numberOfExamples();
-
-    BddReporter.runInfo.testCount++;
-
-    if (numberOfExamples == 0)
-      _runTheTest(bdd, null);
-    else {
-      for (int i = 0; i < numberOfExamples; i++) _runTheTest(bdd, i);
-    }
-  }
-
-  static const BddConfig config = BddConfig(
-    //
-    keywords: BddKeywords(
-      feature: '${boldItalic}Feature:$boldItalicOff',
-      scenario: '${boldItalic}Scenario:$boldItalicOff',
-      scenarioOutline: '${boldItalic}Scenario Outline:$boldItalicOff',
-      given: '${boldItalic}Given$boldItalicOff',
-      when: '${boldItalic}When$boldItalicOff',
-      then: '${boldItalic}Then$boldItalicOff',
-      and: '${boldItalic}And$boldItalicOff',
-      but: '${boldItalic}But$boldItalicOff',
-      comment: '$boldItalic#$boldItalicOff',
-      examples: '${boldItalic}Examples:$boldItalicOff',
-    ),
-    //
-    keywordPrefix: BddKeywords.only(
-      scenario: '\n',
-      scenarioOutline: '\n',
-      given: '\n',
-      when: '\n',
-      then: '\n',
-      examples: '\n',
-      comment: grey,
-    ),
-    //
-    suffix: BddKeywords.only(
-      comment: blue,
-    ),
-    //
-  );
-
-  String subscript(int index) {
-    String result = '';
-    var x = index.toString();
-    for (int i = 0; i < x.length; i++) {
-      var char = x[i];
-      result += {
-        '0': '₀',
-        '1': '₁',
-        '2': '₂',
-        '3': '₃',
-        '4': '₄',
-        '5': '₅',
-        '6': '₆',
-        '7': '₇',
-        '8': '₈',
-        '9': '₉'
-      }[char]!;
-    }
-    return result;
-  }
-
-  ///  Returns something like: "4₁₂"
-  String testCountStr(int testCount, int? exampleNumber) =>
-      "$testCount${exampleNumber == null ? '' : '${subscript(exampleNumber + 1)}'}";
-
-  /// If the Bdd has examples, this method will be called once for each example, with
-  /// [exampleNumber] starting in 0.
-  ///
-  /// If the Bdd does NOT have examples, this method will run once, with [exampleNumber] null.
-  ///
-  void _runTheTest(BddFramework bdd, int? exampleNumber) {
-    //
-    BddReporter.runInfo.totalTestCount++;
-
-    var totalRetries = bdd._config?.retry ?? 0;
-    var currentExecution = 0;
-
-    String bddStr = bdd.toString(config: config, withFeature: true);
-
-    int testCount = BddReporter.runInfo.testCount;
-    // int totalTestCount = runInfo.totalTestCount;
-
-    if (bdd._skip) BddReporter.runInfo.skipCount++;
-
-    String _testCountStr = testCountStr(testCount, exampleNumber);
-
-    test(
-      //
-      '$_testCountStr ${bdd.description()}',
-      //
-      () async {
-        if (BddReporter.ignoreOverflow) _ignoreOverflowErrors();
-
-        currentExecution++;
-
-        print((currentExecution == 1) //
-            ? "${_header(bdd._skip, _testCountStr)}$blue$bddStr$boldOff"
-            : "\n${red}Retry $currentExecution.\n$boldOff");
-
-        final example = BddTableValues.from(bdd.exampleRow(exampleNumber));
-        final tables = BddMultipleTableValues.from(bdd.tables());
-        final ctx = BddContext(example, tables);
-
-        try {
-          // Run all bdd code.
-          for (CodeRun codeRun in bdd.codeTerms
-              .map((BddCodeTerm codeTerm) => codeTerm.codeRun)) {
-            await codeRun?.call(ctx);
-          }
-        }
-        //
-        catch (error, stacktrace) {
-          bdd.passed.add(false);
-          BddReporter.runInfo.failedCount++;
-          print("\n");
-
-          var errorDetails = FlutterErrorDetails(
-            library: 'BDD Framework',
-            exception: error,
-            stack: stacktrace,
-            stackFilter: _stackFilter,
-          );
-
-          reportTestException(errorDetails, "");
-
-          print(_fail(_testCountStr));
-          return;
-        }
-        //
-        finally {
-          _cleanTargetPlatformOverride();
-        }
-
-        bdd.passed.add(true);
-        BddReporter.runInfo.passedCount++;
-        print(_footer(_testCountStr));
-      },
-      //
-      timeout: Timeout(bdd._timeout),
-      skip: bdd._skip,
-      tags: bdd._config?.tags,
-      onPlatform: bdd._config?.onPlatform,
-      retry: totalRetries,
-      testOn: bdd._config?.testOn,
-    );
-  }
-
-  static Iterable<String> _stackFilter(Iterable<String> frames) {
-    // Removes the frames we are not interested in.
-    var filteredFrames = frames.where((frame) =>
-        !frame.contains("package:matcher/") &&
-        !frame.contains("package:flutter_test/src/widget_tester.dart") &&
-        !frame.contains("package:bdd_framework/src/") &&
-        !frame.contains("package:test_api/src/"));
-
-    return FlutterError.defaultStackFilter(filteredFrames);
-  }
-
-  // static const white = "\x1B[38;5;255m";
-  // static const reversed = "\u001b[7m";
-  static const red = "\x1B[38;5;9m";
-  static const blue = "\x1B[38;5;45m";
-  static const yellow = "\x1B[38;5;226m";
-  static const grey = "\x1B[38;5;246m";
-  static const bold = "\u001b[1m";
-  static const italic = "\u001b[3m";
-  static const boldItalic = bold + italic;
-  static const boldItalicOff = boldOff + italicOff;
-  static const boldOff = "\u001b[22m";
-  static const italicOff = "\u001b[23m";
-  static const reset = "\u001b[0m";
-
-  // See ANSI Colors here: https://pub.dev/packages/ansicolor
-  String _header(bool skip, String testNumberStr) {
-    return yellow +
-        italic +
-        "TEST $testNumberStr ${skip ? "SKIPPED" : ""} "
-            "$italicOff══════════════════════════════════════════════════$reset\n\n";
-  }
-
-  String _footer(String testNumberStr) =>
-      grey + "\n✔ ${italic}TEST $testNumberStr PASSED!\n\n" + italicOff;
-
-  String _fail(String testNumberStr) =>
-      grey + "\n⚠ ${italic}TEST $testNumberStr FAILED!\n" + italicOff;
-}
+typedef CodeRun = FutureOr<void> Function(BddContext ctx);
 
 /// This is for testing the BDD framework only.
 class _TestRun {
@@ -2038,7 +1855,7 @@ class _TestRun {
         Iterable<CodeRun> codeRuns =
             bdd.codeTerms.map((BddCodeTerm codeTerm) => codeTerm.codeRun);
         for (CodeRun codeRun in codeRuns) {
-          codeRun?.call(ctx);
+          codeRun.call(ctx);
         }
 
         bdd.passed.add(true);
@@ -2047,58 +1864,3 @@ class _TestRun {
       }
   }
 }
-
-/// Overrides `FlutterError.onError` defined by `TestWidgetsFlutterBinding._runTest()`,
-/// so that overflow errors are only printed to the console, and not considered test failures.
-///
-/// This function should be called only by the `testWidgets()` body,
-/// because only in this context `FlutterError.onError` is used to get exceptions.
-///
-/// It's not necessary to reset the default value of `FlutterError.onError`,
-/// because the `TestWidgetsFlutterBinding.postTest()` method does that already.
-///
-/// See: https://stackoverflow.com/a/57501230/6696558
-///
-void _ignoreOverflowErrors() {
-  //
-  var handlerOriginal = FlutterError.onError;
-
-  FlutterError.onError = (details) {
-    var exception = details.exception;
-    var ifOverflow = (exception is FlutterError) &&
-        exception.diagnostics
-            .map((diagnostic) => diagnostic.value)
-            .whereType<List<Object>>()
-            .expand((value) => value)
-            .any((data) =>
-                data.toString().startsWith("A RenderFlex overflowed by"));
-
-    if (ifOverflow)
-      FlutterError.dumpErrorToConsole(details);
-    else
-      handlerOriginal!(details);
-  };
-}
-
-/// During the binding process that happens inside the `testWidgets()` function,
-/// the `BindingBase.initServiceExtensions()` method determines, based on the
-/// operating system, the value of `debugDefaultTargetPlatformOverride`.
-///
-/// In common test situations, the operating system is Windows, causing
-/// null to be assigned to `debugDefaultTargetPlatformOverride`.
-///
-/// Inside `testWidgets()`, right after executing the `WidgetTesterCallback`,
-/// the `TestWidgetsFlutterBinding.runTest()` method calls the function
-/// `debugAssertAllFoundationVarsUnset()` which requires that
-/// `debugDefaultTargetPlatformOverride` is null, because it expects the test
-/// to be run on Windows. As this is not the case, an error is thrown.
-///
-/// The easiest way to prevent this error from being thrown is by setting null
-/// to the `debugDefaultTargetPlatformOverride` in the `WidgetTesterCallback` of the
-/// `testWidgets()`.
-///
-/// Same explanation, slightly different:
-/// https://stackoverflow.com/a/57628196/6696558
-///
-void _cleanTargetPlatformOverride() =>
-    (debugDefaultTargetPlatformOverride = null);

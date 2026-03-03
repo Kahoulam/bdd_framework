@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import '../bdd_base.dart';
+import '../core.dart';
 
 class ConsoleReporter extends BddReporter {
   static const config = BddConfig(rightAlignKeywords: true);
