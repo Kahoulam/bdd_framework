@@ -114,6 +114,73 @@ void main() {
     });
   });
 
+  group('BddFeature.userStory Named Constructor', () {
+    test('constructs with title and User Story parts', () {
+      final feature = BddFeature.userStory(
+        'User Login',
+        asA: 'Registered User',
+        iWant: 'to log into my account',
+        soThat: 'I can access my private dashboard',
+      );
+
+      expect(feature.title, 'User Login');
+      expect(feature.description, isNull);
+      expect(feature.isNotEmpty, isTrue);
+    });
+
+    test('renders User Story lines after Feature title', () {
+      final feature = BddFeature.userStory(
+        'User Login',
+        asA: 'Registered User',
+        iWant: 'to log into my account',
+        soThat: 'I can access my private dashboard',
+      );
+      final output = feature.toString(const BddConfig());
+
+      expect(
+        output,
+        'Feature: User Login\n'
+        '  As a Registered User\n'
+        '  I want to log into my account\n'
+        '  So that I can access my private dashboard\n',
+      );
+    });
+
+    test('equality: userStory and plain constructor with same title are equal',
+        () {
+      final featureA = BddFeature.userStory(
+        'Payment Gateway',
+        asA: 'Customer',
+        iWant: 'to pay',
+        soThat: 'I can complete checkout',
+      );
+      final featureB = BddFeature('Payment Gateway');
+
+      expect(featureA, equals(featureB));
+      expect(featureA.hashCode, equals(featureB.hashCode));
+    });
+
+    test('toString excludes Background for userStory', () {
+      final feature = BddFeature.userStory(
+        'Payment Checkout',
+        asA: 'Customer',
+        iWant: 'to checkout my cart',
+        soThat: 'I can receive my order',
+      );
+      feature.background.given('a valid credit card is stored');
+
+      final output = feature.toString(const BddConfig());
+
+      expect(
+        output,
+        'Feature: Payment Checkout\n'
+        '  As a Customer\n'
+        '  I want to checkout my cart\n'
+        '  So that I can receive my order\n',
+      );
+    });
+  });
+
   group('BddFeature Collections', () {
     test('scenarios (bdds) can be added and duplicate instances are rejected',
         () {

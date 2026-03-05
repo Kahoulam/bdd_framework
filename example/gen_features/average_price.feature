@@ -1,4 +1,7 @@
 Feature: Average Price
+  As a Stock Investor
+  I want to see my portfolio average price updated
+  So that I can make better investment decisions
 
   Background:
     Given The user has 100,000 dollars in cash-balance.

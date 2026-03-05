@@ -4,9 +4,16 @@ import 'package:example/main.dart';
 import "package:flutter_test/flutter_test.dart";
 
 void main() {
-  var feature = BddFeature('Average Price');
+  var feature = BddFeature.userStory(
+    'Average Price',
+    asA: 'Stock Investor',
+    iWant: 'to see my portfolio average price updated',
+    soThat: 'I can make better investment decisions',
+  );
 
-  feature.background.given('The user has 100,000 dollars in cash-balance.').code((ctx) async {
+  feature.background
+      .given('The user has 100,000 dollars in cash-balance.')
+      .code((ctx) async {
     state = AppState.initialState();
     state.portfolio.cashBalance.setAmount(100000.00);
   });
@@ -14,7 +21,8 @@ void main() {
   Bdd(feature)
       .scenario('Buying and Selling stocks changes the average price.')
       .given('The user has <Quantity> shares of <Ticker> at <At> dollars each.')
-      .when('The user <BuyOrSell> <How many> of these stock at <Price> for each share.')
+      .when(
+          'The user <BuyOrSell> <How many> of these stock at <Price> for each share.')
       .then('The number of shares becomes <Quantity> plus/minus <How many>.')
       .and('The average price for the stock becomes <Average Price>.')
       // Avg price = (10 x 100 + 2 * 50) / 12 = 91.67 dollars.
@@ -50,14 +58,16 @@ void main() {
     // Given:
     var availableStock = state.availableStocks.findBySymbol(ticker);
     availableStock.setCurrentPrice(at);
-    state.portfolio.setStockInPortfolio(ticker, quantity: quantity, averagePrice: at);
+    state.portfolio
+        .setStockInPortfolio(ticker, quantity: quantity, averagePrice: at);
 
     // When:
     availableStock.setCurrentPrice(price);
     state.portfolio.buyOrSell(availableStock, buyOrSell, howMany: how);
 
     // Then:
-    expect(state.portfolio.howManyStocks(ticker), quantity + (buyOrSell.isBuy ? how : -how));
+    expect(state.portfolio.howManyStocks(ticker),
+        quantity + (buyOrSell.isBuy ? how : -how));
     expect(state.portfolio.getStock(ticker)!.averagePrice, averagePrice);
   });
 }
