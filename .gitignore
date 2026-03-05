@@ -122,3 +122,8 @@ app.*.map.json
 .vscode/
 
 .env
+
+# Patrol-related
+test_bundle.dart
+playwright-report/
+test-results/
