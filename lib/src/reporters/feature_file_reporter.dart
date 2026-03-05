@@ -19,7 +19,8 @@ class FeatureFileReporter extends BddReporter {
   }
 
   /// Add a bar to the end of dir, only if necessary.
-  String get directory => (dir.endsWith("/") || dir.endsWith("\\")) ? dir : dir + "/";
+  String get directory =>
+      (dir.endsWith("/") || dir.endsWith("\\")) ? dir : dir + "/";
 
   Future<void> _init() async {
     //
@@ -41,12 +42,17 @@ class FeatureFileReporter extends BddReporter {
 
       try {
         final fileName = normalizeFileName(feature.title);
-        final file = await File('$directory$fileName.feature').create(recursive: true);
+        final file =
+            await File('$directory$fileName.feature').create(recursive: true);
 
         stdout.write("Generating $file. ");
         sink = file.openWrite();
         sink.write(feature);
-        sink.write('\n');
+
+        if (feature.backgroundFramework != null) {
+          sink.write('\n');
+          sink.write(feature.background.toString());
+        }
 
         for (var i = 0; i < feature.testResults.length; i++) {
           _writeScenario(sink, feature.testResults[i]);

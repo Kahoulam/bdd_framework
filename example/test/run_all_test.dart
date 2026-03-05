@@ -1,8 +1,8 @@
 import 'package:bdd_framework/bdd_framework.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'bdd_average_price.dart' as bdd_average_price;
-import 'bdd_buy_and_sell.dart' as bdd_buy_and_sell;
+import 'bdd_average_price_test.dart' as bdd_average_price;
+import 'bdd_buy_and_sell_test.dart' as bdd_buy_and_sell;
 
 void main() async {
   BddReporter.set(

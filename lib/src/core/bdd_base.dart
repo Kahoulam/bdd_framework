@@ -10,6 +10,9 @@ import 'package:test/test.dart';
 import 'bdd_context.dart';
 part 'bdd_runner.dart';
 
+part 'bdd_feature.dart';
+part 'bdd_background.dart';
+
 /// This interface helps to format values in Examples and Tables.
 /// If a value implements the [BddDescribe] interface, or if it has a
 /// [describe] method, it will be used to format the value.
@@ -99,6 +102,7 @@ class BddKeywords {
   //
   const BddKeywords({
     this.feature = 'Feature:',
+    this.background = 'Background:',
     this.scenario = 'Scenario:',
     this.scenarioOutline = 'Scenario Outline:',
     this.given = 'Given',
@@ -113,6 +117,7 @@ class BddKeywords {
 
   const BddKeywords.only({
     this.feature = '',
+    this.background = '',
     this.scenario = '',
     this.scenarioOutline = '',
     this.given = '',
@@ -128,6 +133,7 @@ class BddKeywords {
   static const empty = const BddKeywords.only();
 
   final String feature,
+      background,
       scenario,
       scenarioOutline,
       given,
@@ -532,6 +538,9 @@ class BddGiven extends BddTerm with BddCodeable<_GivenCode>, BddRunnable {
   BddGiven._(BddFramework bdd, String text, _Variation variation)
       : super(bdd, text, variation);
 
+  BddGiven.note(BddFramework bdd, String text)
+      : super(bdd, text, _Variation.note);
+
   @override
   String spaces(BddConfig config) => config.spaces + config.spaces;
 
@@ -664,6 +673,12 @@ class _GivenCode extends BddCodeTerm with BddCodeable<_GivenCode>, BddRunnable {
   /// "When I click the 'Submit' button" describes the action taken after the
   /// initial context is set by the 'Given' step.
   BddWhen when(String text) => BddWhen(bdd, text);
+
+  /// This keyword is used to describe the expected outcome or result after the
+  /// 'When' step is executed. It's used to assert that a certain outcome should
+  /// occur, which helps to validate whether the system behaves as expected.
+  /// An example is, "Then I should be redirected to the dashboard".
+  BddThen then(String text) => BddThen(bdd, text);
 }
 
 class BddWhen extends BddTerm with BddCodeable<_WhenCode>, BddRunnable {
@@ -1655,63 +1670,6 @@ class TestResult {
   List<bool> get passed => _bdd.passed;
 }
 
-class BddFeature {
-  final String title;
-  final String? description;
-  final List<BddFramework> _bdds;
-
-  List<BddFramework> get bdds => _bdds.toList();
-
-  bool get isEmpty => title.isEmpty;
-
-  bool get isNotEmpty => title.isNotEmpty;
-
-  BddFeature(this.title, {this.description}) : _bdds = [];
-
-  List<TestResult> get testResults =>
-      _bdds.map((bdd) => TestResult(bdd)).toList();
-
-  List<BddFramework> result = [];
-
-  void add(BddFramework bdd) {
-    _bdds.add(bdd);
-  }
-
-  @override
-  String toString([BddConfig config = BddConfig._default]) {
-    var result = config.keywordPrefix.feature +
-        config.keywords.feature +
-        config.keywordSuffix.feature +
-        ' ' +
-        config.prefix.feature +
-        title +
-        config.suffix.feature +
-        config.endOfLineChar;
-
-    if (description != null) {
-      var parts = description!.trim().split('\n');
-      result = result +
-          config.spaces +
-          config.prefix.feature +
-          parts.join(config.endOfLineChar + config.spaces) +
-          config.suffix.feature +
-          config.endOfLineChar;
-    }
-
-    return result;
-  }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is BddFeature &&
-          runtimeType == other.runtimeType &&
-          title == other.title;
-
-  @override
-  int get hashCode => title.hashCode;
-}
-
 /// Example:
 ///
 /// ```
@@ -1851,6 +1809,14 @@ class _TestRun {
 
     if (!bdd._skip)
       try {
+        final background = bdd.feature?.backgroundFramework;
+        if (background != null) {
+          for (CodeRun codeRun in background.codeTerms
+              .map((BddCodeTerm codeTerm) => codeTerm.codeRun)) {
+            codeRun.call(ctx);
+          }
+        }
+
         /// Run all bdd code.
         Iterable<CodeRun> codeRuns =
             bdd.codeTerms.map((BddCodeTerm codeTerm) => codeTerm.codeRun);

@@ -6,19 +6,20 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   var feature = BddFeature('Buying and Selling Stocks');
 
+  feature.background.given('The user has 120 dollars in cash-balance.').code((ctx) async {
+    state = AppState.initialState();
+    state.portfolio.cashBalance.setAmount(120.00);
+  });
+
   Bdd(feature)
       .scenario('Buying stocks.')
-      .given('The user has 120 dollars in cash-balance.')
-      .and('IBM price is 30 dollars.')
+      .given('IBM price is 30 dollars.')
       .and('The user has no IBM stocks.')
       .when('The user buys 1 IBM.')
       .then('The user now has 1 IBM.')
       .and('The cash-balance is now 90 dollars.')
       .run((ctx) async {
-    state = AppState.initialState();
-
     // Given:
-    state.portfolio.cashBalance.setAmount(120.00);
     var ibm = state.availableStocks.findBySymbol('IBM');
     ibm.setCurrentPrice(30.00);
     state.portfolio.clearStock('IBM');
@@ -33,8 +34,7 @@ void main() {
 
   Bdd(feature)
       .scenario('Selling stocks.')
-      .given('The user has 120 dollars in cash-balance.')
-      .and('The current stock prices are as such:')
+      .given('The current stock prices are as such:')
       .table(
         'Available Stocks',
         row(val('Ticker', 'AAPL'), val('Price', 50.25)),
@@ -53,11 +53,6 @@ void main() {
       .and('AAPL is still 5, and GOOG is still 12.')
       .and('The cash-balance is now 150 dollars.')
       .run((ctx) async {
-    state = AppState.initialState();
-
-    // Given:
-    state.portfolio.cashBalance.setAmount(120.00);
-
     // We read and create the info from the "Available Stocks" table:
 
     var availableStocksTable = ctx.table('Available Stocks').rows;
@@ -89,49 +84,18 @@ void main() {
     expect(state.portfolio.howManyStocks('AAPL'), 5);
     expect(state.portfolio.howManyStocks('GOOG'), 12);
     expect(state.portfolio.cashBalance, CashBalance(150.00));
-
-    /// The code below shows the alternative hard-coded implementation:
-    //   state = AppState.initialState();
-    //
-    //   // Given:
-    //   state.portfolio.cashBalance.set(120.00);
-    //
-    //   var aapl = state.availableStocks.findBySymbol('AAPL');
-    //   var ibm = state.availableStocks.findBySymbol('IBM');
-    //   var goog = state.availableStocks.findBySymbol('GOOG');
-    //
-    //   aapl.setCurrentPrice(50.25);
-    //   ibm.setCurrentPrice(30.00);
-    //   goog.setCurrentPrice(60.75);
-    //
-    //   state.portfolio.set('AAPL', quantity: 5, averagePrice: 100);
-    //   state.portfolio.set('IBM', quantity: 3, averagePrice: 100);
-    //   state.portfolio.set('GOOG', quantity: 12, averagePrice: 100);
-    //
-    //   // When:
-    //   state.portfolio.sell(ibm);
-    //
-    //   // Then:
-    //   expect(state.portfolio.howManyStocks('IBM'), 2);
-    //   expect(state.portfolio.howManyStocks('AAPL'), 5);
-    //   expect(state.portfolio.howManyStocks('GOOG'), 12);
-    //   expect(state.portfolio.cashBalance, CashBalance(150.00));
   });
 
   Bdd(feature)
       .scenario('Selling stocks you don’t have.')
-      .given('The user has 120 dollars in cash-balance.')
-      .and('IBM price is 30 dollars.')
+      .given('IBM price is 30 dollars.')
       .and('The user has no IBM stocks.')
       .when('The user sells 1 IBM.')
       .then('We get an error.')
       .and('The user continues to have 0 IBM.')
       .and('The cash-balance continues to be 120 dollars.')
       .run((ctx) async {
-    state = AppState.initialState();
-
     // Given:
-    state.portfolio.cashBalance.setAmount(120.00);
     var ibm = state.availableStocks.findBySymbol('IBM');
     ibm.setCurrentPrice(30.00);
     state.portfolio.clearStock('IBM');
