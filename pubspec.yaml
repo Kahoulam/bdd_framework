@@ -24,5 +24,6 @@ dependencies:
     sdk: flutter
 
   test: ^1.24.0
+  patrol: ^4.1.1
 dev_dependencies:
   flutter_lints: ^3.0.1
