@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import '../bdd_base.dart';
+import '../core.dart';
 
 class FeatureFileReporter extends BddReporter {
   //
@@ -19,8 +19,7 @@ class FeatureFileReporter extends BddReporter {
   }
 
   /// Add a bar to the end of dir, only if necessary.
-  String get directory =>
-      (dir.endsWith("/") || dir.endsWith("\\")) ? dir : dir + "/";
+  String get directory => (dir.endsWith("/") || dir.endsWith("\\")) ? dir : dir + "/";
 
   Future<void> _init() async {
     //
@@ -42,8 +41,7 @@ class FeatureFileReporter extends BddReporter {
 
       try {
         final fileName = normalizeFileName(feature.title);
-        final file =
-            await File('$directory$fileName.feature').create(recursive: true);
+        final file = await File('$directory$fileName.feature').create(recursive: true);
 
         stdout.write("Generating $file. ");
         sink = file.openWrite();
