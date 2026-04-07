@@ -11,8 +11,11 @@ class BddFeature {
   /// The title of the feature.
   final String title;
 
-  /// An optional multiline description explaining the feature's purpose or business value.
-  final String? description;
+  /// An optional structured description (plain text or User Story).
+  final FeatureDescription? _description;
+
+  /// Returns the plain text description, if any.
+  String? get description => _description?.text;
 
   /// Internal list of scenarios belonging to this feature.
   final List<BddFramework> _bdds;
@@ -42,7 +45,33 @@ class BddFeature {
   bool get isNotEmpty => title.isNotEmpty;
 
   /// Creates a new [BddFeature] with the given [title] and optional [description].
-  BddFeature(this.title, {this.description}) : _bdds = [];
+  BddFeature(this.title, {String? description})
+      : _description =
+            description != null ? FeatureDescription(text: description) : null,
+        _bdds = [];
+
+  /// Creates a new [BddFeature] with a structured User Story description.
+  ///
+  /// Example:
+  /// ```dart
+  /// var feature = BddFeature.userStory(
+  ///   'User Login',
+  ///   asA: 'Registered User',
+  ///   iWant: 'to log into my account',
+  ///   soThat: 'I can access my private dashboard',
+  /// );
+  /// ```
+  BddFeature.userStory(
+    this.title, {
+    required String asA,
+    required String iWant,
+    required String soThat,
+  })  : _description = FeatureDescription.userStory(
+          asA: asA,
+          iWant: iWant,
+          soThat: soThat,
+        ),
+        _bdds = [];
 
   /// Returns a list of [TestResult] objects for all scenarios in this feature.
   List<TestResult> get testResults =>
@@ -62,7 +91,7 @@ class BddFeature {
 
   /// Returns the Gherkin string representation of this feature.
   ///
-  /// Includes the feature keyword, title, description, and the background section if defined.
+  /// Includes the feature keyword, title, and description if defined.
   @override
   String toString([BddConfig config = BddConfig._default]) {
     var result = config.keywordPrefix.feature +
@@ -74,14 +103,8 @@ class BddFeature {
         config.suffix.feature +
         config.endOfLineChar;
 
-    if (description != null) {
-      var parts = description!.trim().split('\n');
-      result = result +
-          config.spaces +
-          config.prefix.feature +
-          parts.join(config.endOfLineChar + config.spaces) +
-          config.suffix.feature +
-          config.endOfLineChar;
+    if (_description != null) {
+      result += _description!.format(config);
     }
 
     return result;

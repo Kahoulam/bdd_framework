@@ -12,6 +12,7 @@ part 'bdd_runner.dart';
 
 part 'bdd_feature.dart';
 part 'bdd_background.dart';
+part 'bdd_feature_description.dart';
 
 /// This interface helps to format values in Examples and Tables.
 /// If a value implements the [BddDescribe] interface, or if it has a
@@ -113,6 +114,9 @@ class BddKeywords {
     this.comment = '#',
     this.examples = 'Examples:',
     this.table = '',
+    this.asA = 'As a',
+    this.iWant = 'I want',
+    this.soThat = 'So that',
   });
 
   const BddKeywords.only({
@@ -128,6 +132,9 @@ class BddKeywords {
     this.comment = '',
     this.examples = '',
     this.table = '',
+    this.asA = '',
+    this.iWant = '',
+    this.soThat = '',
   });
 
   static const empty = const BddKeywords.only();
@@ -143,7 +150,10 @@ class BddKeywords {
       but,
       comment,
       examples,
-      table;
+      table,
+      asA,
+      iWant,
+      soThat;
 }
 
 class BddConfig {
