@@ -144,7 +144,16 @@ class BddRunner {
         final ctx = BddContext(example, tables);
 
         try {
-          // Sequentially execute all code blocks registered for this BDD scenario.
+          // 1) Execute background setups if present.
+          BddFramework? backgroundOption = bdd.feature?.backgroundFramework;
+          if (backgroundOption != null) {
+            for (CodeRun codeRun in backgroundOption.codeTerms
+                .map((BddCodeTerm codeTerm) => codeTerm.codeRun)) {
+              await codeRun.call(ctx);
+            }
+          }
+
+          // 2) Sequentially execute all code blocks registered for this BDD scenario.
           for (CodeRun codeRun in bdd.codeTerms
               .map((BddCodeTerm codeTerm) => codeTerm.codeRun)) {
             await codeRun.call(ctx);

@@ -15,6 +15,10 @@ class ConsoleReporter extends BddReporter {
       if (feature.isNotEmpty) {
         var featureStr = feature.toString(config);
         stdout.writeln(featureStr);
+
+        if (feature.backgroundFramework != null) {
+          stdout.writeln(feature.background.toString(config));
+        }
       }
 
       for (TestResult testResult in feature.testResults) {

@@ -6,6 +6,11 @@ import "package:flutter_test/flutter_test.dart";
 void main() {
   var feature = BddFeature('Average Price');
 
+  feature.background.given('The user has 100,000 dollars in cash-balance.').code((ctx) async {
+    state = AppState.initialState();
+    state.portfolio.cashBalance.setAmount(100000.00);
+  });
+
   Bdd(feature)
       .scenario('Buying and Selling stocks changes the average price.')
       .given('The user has <Quantity> shares of <Ticker> at <At> dollars each.')
@@ -42,23 +47,17 @@ void main() {
     double price = ctx.example.val('Price');
     double averagePrice = ctx.example.val('Average Price');
 
-    // Sets up everything and just make sure we have money to buy whatever we need.
-    state = AppState.initialState();
-    state.portfolio.cashBalance.setAmount(100000.00);
-
     // Given:
     var availableStock = state.availableStocks.findBySymbol(ticker);
     availableStock.setCurrentPrice(at);
-    state.portfolio
-        .setStockInPortfolio(ticker, quantity: quantity, averagePrice: at);
+    state.portfolio.setStockInPortfolio(ticker, quantity: quantity, averagePrice: at);
 
     // When:
     availableStock.setCurrentPrice(price);
     state.portfolio.buyOrSell(availableStock, buyOrSell, howMany: how);
 
     // Then:
-    expect(state.portfolio.howManyStocks(ticker),
-        quantity + (buyOrSell.isBuy ? how : -how));
+    expect(state.portfolio.howManyStocks(ticker), quantity + (buyOrSell.isBuy ? how : -how));
     expect(state.portfolio.getStock(ticker)!.averagePrice, averagePrice);
   });
 }
