@@ -104,7 +104,7 @@ class BddFeature {
         config.endOfLineChar;
 
     if (_description != null) {
-      result += _description!.format(config);
+      result += _description.format(config);
     }
 
     return result;

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:test/test.dart';
 
 import '../core.dart';
@@ -38,24 +36,15 @@ extension DartTestCode<T> on BddCodeable<T> {
 }
 
 /// Internal helper that bridges the [BddRunner] to the pure Dart `test()` function.
-void _testDelegate(
-  String description,
-  Future<void> Function() body, {
-  Timeout? timeout,
-  bool? skip,
-  dynamic tags,
-  Map<String, dynamic>? onPlatform,
-  int? retry,
-  dynamic testOn,
-}) {
+void _testDelegate(TestInvocation invocation) {
   test(
-    description,
-    body,
-    timeout: timeout,
-    skip: skip,
-    tags: tags,
-    onPlatform: onPlatform,
-    retry: retry,
-    testOn: testOn,
+    invocation.description,
+    invocation.body,
+    timeout: invocation.timeout,
+    skip: invocation.skip,
+    tags: invocation.tags,
+    onPlatform: invocation.onPlatform,
+    retry: invocation.retry,
+    testOn: invocation.testOn,
   );
 }

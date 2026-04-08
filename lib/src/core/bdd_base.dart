@@ -13,6 +13,7 @@ part 'bdd_runner.dart';
 part 'bdd_feature.dart';
 part 'bdd_background.dart';
 part 'bdd_feature_description.dart';
+part 'bdd_example.dart';
 
 /// This interface helps to format values in Examples and Tables.
 /// If a value implements the [BddDescribe] interface, or if it has a
@@ -416,6 +417,16 @@ class BddFramework {
     return (_example == null) ? 0 : _example.rows.length;
   }
 
+  BddExample addExampleValues(List<val> values) {
+    assert(values.isNotEmpty, 'Examples require at least one value.');
+    final existing = example();
+    if (existing != null) {
+      return existing.appendExampleValues(values);
+    }
+
+    return BddExample(this, values);
+  }
+
   /// Skips running this test.
   BddFramework get skip {
     _skip = true;
@@ -808,7 +819,8 @@ class _WhenCode extends BddCodeTerm with BddCodeable<_WhenCode>, BddRunnable {
   BddThen then(String text) => BddThen(bdd, text);
 }
 
-class BddThen extends BddTerm with BddCodeable<_ThenCode>, BddRunnable {
+class BddThen extends BddTerm
+    with BddCodeable<_ThenCode>, BddRunnable, BddExampleAttachable {
   @override
   _ThenCode addCode(CodeRun codeRun) => _ThenCode(bdd, codeRun);
 
@@ -871,81 +883,6 @@ class BddThen extends BddTerm with BddCodeable<_ThenCode>, BddRunnable {
   /// making it easier for others to understand the purpose and scope of the test.
   BddThen note(String text) => BddThen._(bdd, text, _Variation.note);
 
-  /// Examples are used in the context of Scenario Outlines. A Scenario Outline
-  /// is a template for multiple tests, and the "Examples" section provides
-  /// concrete values to be substituted into the template for each test run.
-  /// This approach allows for the specification of multiple scenarios using the
-  /// same pattern of action but with different sets of data.
-  ///
-  /// Here’s how it works:
-  ///
-  /// Scenario Outline: This is a kind of scenario that is run multiple times
-  /// with different data. It includes variables in the Given-When-Then steps,
-  /// which are indicated with angle brackets, like <variable>.
-  ///
-  /// Examples: This keyword introduces a table right below the Scenario Outline.
-  /// Each row in this table (except the header) represents a set of values that
-  /// will be passed into the Scenario Outline’s variables. The header row
-  /// defines the names of these variables.
-  ///
-  /// For example, if you have a Scenario Outline describing the login process,
-  /// you might have variables for username and password. The Examples table
-  /// will then list different combinations of usernames and passwords to test
-  /// various login scenarios.
-  ///
-  /// This approach is particularly useful for testing the same feature or
-  /// functionality under different conditions and with different inputs,
-  /// making your tests more comprehensive and robust. It also keeps your
-  /// Gherkin feature files DRY (Don't Repeat Yourself), as you avoid writing
-  /// multiple scenarios that differ only in the data they use.
-  ///
-  /// ```
-  ///   Bdd(feature)
-  ///       .scenario('Buying and Selling stocks changes the average price.')
-  ///       .given('The user has <Quantity> shares of <Ticker> at <At> dollars each.')
-  ///       .when('The user <BuyOrSell> <How many> of these stock at <Price> for each share.')
-  ///       .then('The number of shares becomes <Quantity> plus/minus <How many>.')
-  ///       .and('The average price for the stock becomes <Average Price>.')
-  ///       .example(
-  ///         val('Ticker', 'IBM'),
-  ///         val('Quantity', 10),
-  ///         val('At', 100.00),
-  ///         val('BuyOrSell', BuyOrSell.buy),
-  ///         val('How many', 2),
-  ///         val('Price', 50.00),
-  ///         val('Average Price', 91.67),
-  ///       )
-  ///       .example(
-  ///         val('Ticker', 'IBM'),
-  ///         val('Quantity', 8),
-  ///         val('At', 200.00),
-  ///         val('BuyOrSell', BuyOrSell.sell),
-  ///         val('How many', 3),
-  ///         val('Price', 30.00),
-  ///         val('Average Price', 302.00),
-  ///       )
-  ///       .run((ctx) async { ...
-  /// ```
-  BddExample example(
-    val v1, [
-    val? v2,
-    val? v3,
-    val? v4,
-    val? v5,
-    val? v6,
-    val? v7,
-    val? v8,
-    val? v9,
-    val? v10,
-    val? v11,
-    val? v12,
-    val? v13,
-    val? v14,
-    val? v15,
-  ]) =>
-      BddExample(bdd, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13,
-          v14, v15);
-
   @visibleForTesting
   BddFramework testRun(CodeRun code, BddReporter reporter) {
     _TestRun(code, reporter).run(bdd);
@@ -958,7 +895,8 @@ class BddThen extends BddTerm with BddCodeable<_ThenCode>, BddRunnable {
       super.toString(config);
 }
 
-class _ThenCode extends BddCodeTerm with BddCodeable<_ThenCode>, BddRunnable {
+class _ThenCode extends BddCodeTerm
+    with BddCodeable<_ThenCode>, BddRunnable, BddExampleAttachable {
   _ThenCode(BddFramework bdd, CodeRun code) : super(bdd, code);
 
   @override
@@ -971,87 +909,12 @@ class _ThenCode extends BddCodeTerm with BddCodeable<_ThenCode>, BddRunnable {
           [row? row2, row? row3, row? row4]) =>
       BddThenTable(bdd, tableName, row1, row2, row3, row4);
 
-  /// Examples are used in the context of Scenario Outlines. A Scenario Outline
-  /// is a template for multiple tests, and the "Examples" section provides
-  /// concrete values to be substituted into the template for each test run.
-  /// This approach allows for the specification of multiple scenarios using the
-  /// same pattern of action but with different sets of data.
-  ///
-  /// Here’s how it works:
-  ///
-  /// Scenario Outline: This is a kind of scenario that is run multiple times
-  /// with different data. It includes variables in the Given-When-Then steps,
-  /// which are indicated with angle brackets, like <variable>.
-  ///
-  /// Examples: This keyword introduces a table right below the Scenario Outline.
-  /// Each row in this table (except the header) represents a set of values that
-  /// will be passed into the Scenario Outline’s variables. The header row
-  /// defines the names of these variables.
-  ///
-  /// For example, if you have a Scenario Outline describing the login process,
-  /// you might have variables for username and password. The Examples table
-  /// will then list different combinations of usernames and passwords to test
-  /// various login scenarios.
-  ///
-  /// This approach is particularly useful for testing the same feature or
-  /// functionality under different conditions and with different inputs,
-  /// making your tests more comprehensive and robust. It also keeps your
-  /// Gherkin feature files DRY (Don't Repeat Yourself), as you avoid writing
-  /// multiple scenarios that differ only in the data they use.
-  ///
-  /// ```
-  ///   Bdd(feature)
-  ///       .scenario('Buying and Selling stocks changes the average price.')
-  ///       .given('The user has <Quantity> shares of <Ticker> at <At> dollars each.')
-  ///       .when('The user <BuyOrSell> <How many> of these stock at <Price> for each share.')
-  ///       .then('The number of shares becomes <Quantity> plus/minus <How many>.')
-  ///       .and('The average price for the stock becomes <Average Price>.')
-  ///       .example(
-  ///         val('Ticker', 'IBM'),
-  ///         val('Quantity', 10),
-  ///         val('At', 100.00),
-  ///         val('BuyOrSell', BuyOrSell.buy),
-  ///         val('How many', 2),
-  ///         val('Price', 50.00),
-  ///         val('Average Price', 91.67),
-  ///       )
-  ///       .example(
-  ///         val('Ticker', 'IBM'),
-  ///         val('Quantity', 8),
-  ///         val('At', 200.00),
-  ///         val('BuyOrSell', BuyOrSell.sell),
-  ///         val('How many', 3),
-  ///         val('Price', 30.00),
-  ///         val('Average Price', 302.00),
-  ///       )
-  ///       .run((ctx) async { ...
-  /// ```
-  BddExample example(
-    val v1, [
-    val? v2,
-    val? v3,
-    val? v4,
-    val? v5,
-    val? v6,
-    val? v7,
-    val? v8,
-    val? v9,
-    val? v10,
-    val? v11,
-    val? v12,
-    val? v13,
-    val? v14,
-    val? v15,
-  ]) =>
-      BddExample(bdd, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13,
-          v14, v15);
-
   /// This keyword is used to extend a 'Given', 'When', or 'Then' step.
   /// It allows you to add multiple conditions or actions in the same step
   /// without having to repeat the 'Given', 'When', or 'Then' keyword.
   /// For example, "And I should see a confirmation message" could follow
   /// a 'Then' step to further specify the expected outcomes.
-  BddWhen and(String text) => BddWhen._(bdd, text, _Variation.and);
+  BddThen and(String text) => BddThen._(bdd, text, _Variation.and);
 
   /// This keyword is used similarly to "And," but it is typically used for
   /// negative conditions or to express a contrast with the previous step.
@@ -1060,7 +923,7 @@ class _ThenCode extends BddCodeTerm with BddCodeable<_ThenCode>, BddRunnable {
   /// after a "Then" step, you might have "But I should not be logged out."
   /// This helps in creating more comprehensive scenarios by covering both
   /// what should happen and what should not happen under certain conditions.
-  BddWhen but(String text) => BddWhen._(bdd, text, _Variation.but);
+  BddThen but(String text) => BddThen._(bdd, text, _Variation.but);
 
   /// Often used informally in comments within a Gherkin document to provide
   /// additional information, clarifications, or explanations about the scenario
@@ -1068,7 +931,7 @@ class _ThenCode extends BddCodeTerm with BddCodeable<_ThenCode>, BddRunnable {
   /// are ignored when the tests are executed. A "Note" can be useful for
   /// giving context or explaining the rationale behind a certain test scenario,
   /// making it easier for others to understand the purpose and scope of the test.
-  BddWhen note(String text) => BddWhen._(bdd, text, _Variation.note);
+  BddThen note(String text) => BddThen._(bdd, text, _Variation.note);
 
   @visibleForTesting
   BddFramework testRun(CodeRun code, BddReporter reporter) {
@@ -1166,238 +1029,6 @@ abstract class BddTableTerm extends BddTerm {
       keywordSuffix(config) +
       prefix(config) +
       formatTable(config) +
-      suffix(config);
-}
-
-class BddExample extends BddTerm with BddRunnable {
-  //
-  BddExample(
-      BddFramework bdd,
-      val v1,
-      val? v2,
-      val? v3,
-      val? v4,
-      val? v5,
-      val? v6,
-      val? v7,
-      val? v8,
-      val? v9,
-      val? v10,
-      val? v11,
-      val? v12,
-      val? v13,
-      val? v14,
-      val? v15)
-      : super(bdd, '', _Variation.term) {
-    var set = [v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15]
-        .nonNulls
-        .toSet();
-    rows.add(set);
-  }
-
-  final List<Set<val>> rows = [];
-
-  /// Here we have something like:
-  /// [
-  /// { (number;123), (password;ABC) }
-  /// { (number;456), (password;XYZ) }
-  /// ]
-  String formatExampleTable(BddConfig config) {
-    //
-    Map<String, int> sizes = {};
-    for (Set<val> row in rows) {
-      //
-      for (val value in row) {
-        int? maxValue1 = sizes[value.name];
-        int maxValue2 = max(value.name.length, value.toString(config).length);
-        int maxValue =
-            (maxValue1 == null) ? maxValue2 : max(maxValue1, maxValue2);
-
-        sizes[value.name] = maxValue;
-      }
-    }
-
-    var spaces = config.spaces;
-    var space = config.space;
-    var endOfLineChar = config.endOfLineChar;
-    var tableDivider = config.tableDivider;
-
-    String rightAlignPadding = spaces +
-        spaces +
-        spaces +
-        ((config.rightAlignKeywords) ? config.padChar * 4 : '');
-
-    String header = rightAlignPadding +
-        '$tableDivider$space' +
-        rows.first.map((val) {
-          int length = sizes[val.name] ?? 50;
-          return val.name.padRight(length, space);
-        }).join('$space$tableDivider$space') +
-        '$space$tableDivider';
-
-    List<String> rowsStr = rows.map((row) {
-      return rightAlignPadding +
-          '$tableDivider$space' +
-          row.map((val) {
-            int length = sizes[val.name] ?? 50;
-            return val.toString(config).padRight(length, space);
-          }).join('$space$tableDivider$space') +
-          '$space$tableDivider';
-    }).toList();
-
-    var result = '$header$endOfLineChar'
-        '${rowsStr.join(endOfLineChar)}';
-
-    return result;
-  }
-
-  // TODO: MARCELO Remove?
-  // @override
-  // String spaces(BddConfig config) => '';
-  //
-  // @override
-  // String keyword(BddConfig config) => config.keywords.table;
-  //
-  // @override
-  // String keywordPrefix(BddConfig config) => config.keywordPrefix.table;
-  //
-  // @override
-  // String keywordSuffix(BddConfig config) => config.keywordSuffix.table;
-  //
-  // @override
-  // String prefix(BddConfig config) => config.prefix.table;
-  //
-  // @override
-  // String suffix(BddConfig config) => config.suffix.table;
-  //
-  // /// Tables have a special toString treatment.
-  // @override
-  // String toString([BddConfig config = BddConfig._default]) =>
-  //     keywordPrefix(config) +
-  //         keyword(config) +
-  //         keywordSuffix(config) +
-  //         prefix(config) +
-  //         formatExampleTable(config) +
-  //         suffix(config);
-
-  @override
-  String spaces(BddConfig config) => config.spaces + config.spaces;
-
-  @override
-  String keyword(BddConfig config) =>
-      _keywordVariation(config) ?? config.keywords.examples;
-
-  @override
-  String keywordPrefix(BddConfig config) =>
-      _keywordPrefixVariation(config) ?? config.keywordPrefix.examples;
-
-  @override
-  String keywordSuffix(BddConfig config) =>
-      _keywordSuffixVariation(config) ?? config.keywordSuffix.examples;
-
-  @override
-  String prefix(BddConfig config) =>
-      _prefixVariation(config) ?? config.prefix.examples;
-
-  @override
-  String suffix(BddConfig config) =>
-      _suffixVariation(config) ?? config.suffix.examples;
-
-  /// Examples are used in the context of Scenario Outlines. A Scenario Outline
-  /// is a template for multiple tests, and the "Examples" section provides
-  /// concrete values to be substituted into the template for each test run.
-  /// This approach allows for the specification of multiple scenarios using the
-  /// same pattern of action but with different sets of data.
-  ///
-  /// Here’s how it works:
-  ///
-  /// Scenario Outline: This is a kind of scenario that is run multiple times
-  /// with different data. It includes variables in the Given-When-Then steps,
-  /// which are indicated with angle brackets, like <variable>.
-  ///
-  /// Examples: This keyword introduces a table right below the Scenario Outline.
-  /// Each row in this table (except the header) represents a set of values that
-  /// will be passed into the Scenario Outline’s variables. The header row
-  /// defines the names of these variables.
-  ///
-  /// For example, if you have a Scenario Outline describing the login process,
-  /// you might have variables for username and password. The Examples table
-  /// will then list different combinations of usernames and passwords to test
-  /// various login scenarios.
-  ///
-  /// This approach is particularly useful for testing the same feature or
-  /// functionality under different conditions and with different inputs,
-  /// making your tests more comprehensive and robust. It also keeps your
-  /// Gherkin feature files DRY (Don't Repeat Yourself), as you avoid writing
-  /// multiple scenarios that differ only in the data they use.
-  ///
-  /// ```
-  ///   Bdd(feature)
-  ///       .scenario('Buying and Selling stocks changes the average price.')
-  ///       .given('The user has <Quantity> shares of <Ticker> at <At> dollars each.')
-  ///       .when('The user <BuyOrSell> <How many> of these stock at <Price> for each share.')
-  ///       .then('The number of shares becomes <Quantity> plus/minus <How many>.')
-  ///       .and('The average price for the stock becomes <Average Price>.')
-  ///       .example(
-  ///         val('Ticker', 'IBM'),
-  ///         val('Quantity', 10),
-  ///         val('At', 100.00),
-  ///         val('BuyOrSell', BuyOrSell.buy),
-  ///         val('How many', 2),
-  ///         val('Price', 50.00),
-  ///         val('Average Price', 91.67),
-  ///       )
-  ///       .example(
-  ///         val('Ticker', 'IBM'),
-  ///         val('Quantity', 8),
-  ///         val('At', 200.00),
-  ///         val('BuyOrSell', BuyOrSell.sell),
-  ///         val('How many', 3),
-  ///         val('Price', 30.00),
-  ///         val('Average Price', 302.00),
-  ///       )
-  ///       .run((ctx) async { ...
-  /// ```
-  BddExample example(
-    val v1, [
-    val? v2,
-    val? v3,
-    val? v4,
-    val? v5,
-    val? v6,
-    val? v7,
-    val? v8,
-    val? v9,
-    val? v10,
-    val? v11,
-    val? v12,
-    val? v13,
-    val? v14,
-    val? v15,
-  ]) {
-    rows.add([v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15]
-        .nonNulls
-        .toSet());
-    return this;
-  }
-
-  @visibleForTesting
-  BddFramework testRun(CodeRun code, BddReporter reporter) {
-    _TestRun(code, reporter).run(bdd);
-    return bdd;
-  }
-
-  /// Examples have a special toString treatment.
-  @override
-  String toString([BddConfig config = BddConfig._default]) =>
-      keywordPrefix(config) +
-      spaces(config) +
-      _keyword(config) +
-      keywordSuffix(config) +
-      ' ' +
-      prefix(config) +
-      config.endOfLineChar +
-      formatExampleTable(config) +
       suffix(config);
 }
 
@@ -1531,7 +1162,7 @@ class BddWhenTable extends BddTableTerm
 }
 
 class BddThenTable extends BddTableTerm
-    with BddCodeable<_ThenCode>, BddRunnable {
+    with BddCodeable<_ThenCode>, BddRunnable, BddExampleAttachable {
   @override
   _ThenCode addCode(CodeRun codeRun) => _ThenCode(bdd, codeRun);
 
@@ -1565,81 +1196,6 @@ class BddThenTable extends BddTableTerm
   /// giving context or explaining the rationale behind a certain test scenario,
   /// making it easier for others to understand the purpose and scope of the test.
   BddThen note(String text) => BddThen._(bdd, text, _Variation.note);
-
-  /// Examples are used in the context of Scenario Outlines. A Scenario Outline
-  /// is a template for multiple tests, and the "Examples" section provides
-  /// concrete values to be substituted into the template for each test run.
-  /// This approach allows for the specification of multiple scenarios using the
-  /// same pattern of action but with different sets of data.
-  ///
-  /// Here’s how it works:
-  ///
-  /// Scenario Outline: This is a kind of scenario that is run multiple times
-  /// with different data. It includes variables in the Given-When-Then steps,
-  /// which are indicated with angle brackets, like <variable>.
-  ///
-  /// Examples: This keyword introduces a table right below the Scenario Outline.
-  /// Each row in this table (except the header) represents a set of values that
-  /// will be passed into the Scenario Outline’s variables. The header row
-  /// defines the names of these variables.
-  ///
-  /// For example, if you have a Scenario Outline describing the login process,
-  /// you might have variables for username and password. The Examples table
-  /// will then list different combinations of usernames and passwords to test
-  /// various login scenarios.
-  ///
-  /// This approach is particularly useful for testing the same feature or
-  /// functionality under different conditions and with different inputs,
-  /// making your tests more comprehensive and robust. It also keeps your
-  /// Gherkin feature files DRY (Don't Repeat Yourself), as you avoid writing
-  /// multiple scenarios that differ only in the data they use.
-  ///
-  /// ```
-  ///   Bdd(feature)
-  ///       .scenario('Buying and Selling stocks changes the average price.')
-  ///       .given('The user has <Quantity> shares of <Ticker> at <At> dollars each.')
-  ///       .when('The user <BuyOrSell> <How many> of these stock at <Price> for each share.')
-  ///       .then('The number of shares becomes <Quantity> plus/minus <How many>.')
-  ///       .and('The average price for the stock becomes <Average Price>.')
-  ///       .example(
-  ///         val('Ticker', 'IBM'),
-  ///         val('Quantity', 10),
-  ///         val('At', 100.00),
-  ///         val('BuyOrSell', BuyOrSell.buy),
-  ///         val('How many', 2),
-  ///         val('Price', 50.00),
-  ///         val('Average Price', 91.67),
-  ///       )
-  ///       .example(
-  ///         val('Ticker', 'IBM'),
-  ///         val('Quantity', 8),
-  ///         val('At', 200.00),
-  ///         val('BuyOrSell', BuyOrSell.sell),
-  ///         val('How many', 3),
-  ///         val('Price', 30.00),
-  ///         val('Average Price', 302.00),
-  ///       )
-  ///       .run((ctx) async { ...
-  /// ```
-  BddExample example(
-    val v1, [
-    val? v2,
-    val? v3,
-    val? v4,
-    val? v5,
-    val? v6,
-    val? v7,
-    val? v8,
-    val? v9,
-    val? v10,
-    val? v11,
-    val? v12,
-    val? v13,
-    val? v14,
-    val? v15,
-  ]) =>
-      BddExample(bdd, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13,
-          v14, v15);
 
   @override
   // ignore: unnecessary_overrides

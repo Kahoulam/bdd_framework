@@ -60,7 +60,7 @@ void main() {
         runner.run(
           bdd,
           (ctx) {},
-          (desc, body, {timeout, skip, tags, onPlatform, retry, testOn}) {
+          (invocation) {
             delegateCalls++;
           },
           null,
@@ -87,7 +87,7 @@ void main() {
         runner.run(
           bdd,
           (ctx) {},
-          (desc, body, {timeout, skip, tags, onPlatform, retry, testOn}) {
+          (invocation) {
             delegateCalls++;
           },
           null,
@@ -112,7 +112,7 @@ void main() {
         runner.run(
           bdd,
           (ctx) {},
-          (desc, body, {timeout, skip, tags, onPlatform, retry, testOn}) {},
+          (invocation) {},
           null,
         );
 
@@ -133,7 +133,7 @@ void main() {
         runner.run(
           bdd,
           myCode,
-          (desc, body, {timeout, skip, tags, onPlatform, retry, testOn}) {},
+          (invocation) {},
           null,
         );
 
@@ -161,8 +161,8 @@ void main() {
           (ctx) {
             capturedValues.add(ctx.example.val('color') as String?);
           },
-          (desc, body, {timeout, skip, tags, onPlatform, retry, testOn}) async {
-            await body();
+          (invocation) async {
+            await invocation.body();
           },
           null,
         );
@@ -186,8 +186,8 @@ void main() {
           (ctx) {
             capturedCtx = ctx;
           },
-          (desc, body, {timeout, skip, tags, onPlatform, retry, testOn}) async {
-            await body();
+          (invocation) async {
+            await invocation.body();
           },
           null,
         );
@@ -195,6 +195,36 @@ void main() {
         expect(capturedCtx, isNotNull);
         expect(capturedCtx!.table('Items').row(0).val('name'), 'apple');
         expect(capturedCtx!.table('Items').row(0).val('qty'), 3);
+      });
+
+      test('uses the context configured by testDelegate during execution', () async {
+        final bdd = Bdd(feature)
+            .scenario('Configured context')
+            .given('G')
+            .when('W')
+            .then('T')
+            .bdd;
+
+        BddContext? capturedCtx;
+        final configuredCtx = _ConfiguredBddContext(
+          BddTableValues.from(null),
+          BddMultipleTableValues({}),
+          marker: 'configured',
+        );
+
+        runner.run(
+          bdd,
+          (ctx) {
+            capturedCtx = ctx;
+          },
+          (invocation) async {
+            invocation.transformContext?.call((_) => configuredCtx);
+            await invocation.body();
+          },
+          null,
+        );
+
+        expect(capturedCtx, same(configuredCtx));
       });
     });
 
@@ -214,8 +244,8 @@ void main() {
         runner.run(
           bdd,
           (ctx) => log.add('codeRun'),
-          (desc, body, {timeout, skip, tags, onPlatform, retry, testOn}) async {
-            await body();
+          (invocation) async {
+            await invocation.body();
             // Verify inside the delegate after body() completes.
             expect(log, ['codeTerm', 'codeRun']);
           },
@@ -238,8 +268,8 @@ void main() {
             await Future.delayed(const Duration(milliseconds: 10));
             finished = true;
           },
-          (desc, body, {timeout, skip, tags, onPlatform, retry, testOn}) async {
-            await body();
+          (invocation) async {
+            await invocation.body();
             // Verify inside the delegate after body() completes.
             expect(finished, isTrue);
           },
@@ -262,8 +292,8 @@ void main() {
         runner.run(
           bdd,
           (ctx) => throw Exception('boom'),
-          (desc, body, {timeout, skip, tags, onPlatform, retry, testOn}) async {
-            await body();
+          (invocation) async {
+            await invocation.body();
           },
           (e, s) {},
         );
@@ -285,8 +315,8 @@ void main() {
         runner.run(
           bdd,
           (ctx) => throw Exception('Target Error'),
-          (desc, body, {timeout, skip, tags, onPlatform, retry, testOn}) async {
-            await body();
+          (invocation) async {
+            await invocation.body();
           },
           (error, stack) {
             capturedError = error;
@@ -312,9 +342,8 @@ void main() {
             runner.run(
               bdd,
               (ctx) => throw Exception('PrintedError'),
-              (desc, body,
-                  {timeout, skip, tags, onPlatform, retry, testOn}) async {
-                await body();
+              (invocation) async {
+                await invocation.body();
               },
               null,
             );
@@ -344,8 +373,8 @@ void main() {
         runner.run(
           bdd,
           (ctx) {},
-          (desc, body, {timeout, skip, tags, onPlatform, retry, testOn}) {
-            receivedTimeout = timeout;
+          (invocation) {
+            receivedTimeout = invocation.timeout;
           },
           null,
         );
@@ -370,8 +399,8 @@ void main() {
         runner.run(
           bdd,
           (ctx) {},
-          (desc, body, {timeout, skip, tags, onPlatform, retry, testOn}) {
-            receivedSkip = skip;
+          (invocation) {
+            receivedSkip = invocation.skip;
           },
           null,
         );
@@ -397,8 +426,8 @@ void main() {
         runner.run(
           bdd1,
           (ctx) {},
-          (d, body, {timeout, skip, tags, onPlatform, retry, testOn}) async {
-            await body();
+          (invocation) async {
+            await invocation.body();
             expect(BddReporter.runInfo.passedCount, 1);
           },
           null,
@@ -407,8 +436,8 @@ void main() {
         runner.run(
           bdd2,
           (ctx) => throw Exception('Err'),
-          (d, body, {timeout, skip, tags, onPlatform, retry, testOn}) async {
-            await body();
+          (invocation) async {
+            await invocation.body();
             expect(BddReporter.runInfo.failedCount, 1);
           },
           (e, s) {},
@@ -417,7 +446,7 @@ void main() {
         runner.run(
           bdd3,
           (ctx) {},
-          (d, body, {timeout, skip, tags, onPlatform, retry, testOn}) {},
+          (invocation) {},
           null,
         );
 
@@ -445,9 +474,8 @@ void main() {
             runner.run(
               bdd,
               (ctx) {},
-              (desc, body,
-                  {timeout, skip, tags, onPlatform, retry, testOn}) async {
-                await body();
+              (invocation) async {
+                await invocation.body();
                 // Verify inside delegate after body prints footer.
                 final joined = output.join('\n');
                 expect(joined, contains('TEST 1'));
@@ -479,9 +507,8 @@ void main() {
             runner.run(
               bdd,
               (ctx) {},
-              (desc, body,
-                  {timeout, skip, tags, onPlatform, retry, testOn}) async {
-                await body();
+              (invocation) async {
+                await invocation.body();
               },
               null,
             );
@@ -512,9 +539,8 @@ void main() {
             runner.run(
               bdd,
               (ctx) => throw Exception('TestFailure'),
-              (desc, body,
-                  {timeout, skip, tags, onPlatform, retry, testOn}) async {
-                await body();
+              (invocation) async {
+                await invocation.body();
                 // Verify inside delegate after body prints fail output.
                 final joined = output.join('\n');
                 expect(joined, contains('FAILED'));
@@ -537,4 +563,14 @@ void main() {
 class _IndirectReporter extends BddReporter {
   @override
   Future<void> report() async {}
+}
+
+class _ConfiguredBddContext extends BddContext {
+  _ConfiguredBddContext(
+    BddTableValues example,
+    BddMultipleTableValues tables, {
+    required this.marker,
+  }) : super(example, tables);
+
+  final String marker;
 }
