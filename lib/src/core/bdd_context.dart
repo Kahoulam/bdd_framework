@@ -10,6 +10,8 @@ class BddContext {
 
   BddTableRows table(String tableName) => BddTableRows(_table.row(tableName));
 
+  BddMultipleTableValues get tables => _table;
+
   BddContext(this.example, this._table);
 
   @override

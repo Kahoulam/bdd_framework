@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bdd_framework/flutter_widget_test.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +14,8 @@ void main() {
         .when('The run method is invoked')
         .then('The WidgetTester is available and functional')
         .run((ctx, tester) async {
+      expect(ctx, isA<BddWidgetContext>());
+      expect((ctx as BddWidgetContext).tester, same(tester));
       await tester.pumpWidget(const Directionality(
         textDirection: TextDirection.ltr,
         child: Text('Hello BDD'),
@@ -69,6 +73,30 @@ void main() {
           expect(step1Ran, isTrue);
           expect(step2Ran, isTrue);
         });
+
+    test('throws a helpful error when widget code runs without widget runner',
+        () async {
+      final reporter = _NoOpBddReporter();
+
+      final error = await _captureAsyncError(() {
+        Bdd(feature)
+            .scenario('Widget code without widget runner')
+            .given('A widget-specific code step')
+            .code((ctx, tester) {})
+            .when('The scenario runs through testRun')
+            .then('A helpful error is thrown')
+            .testRun((ctx) {}, reporter);
+      });
+
+      expect(
+        error,
+        isA<StateError>().having(
+          (error) => error.message,
+          'message',
+          contains('WidgetTester not found in BddContext'),
+        ),
+      );
+    });
   });
 
   group('example values', () {
@@ -107,4 +135,24 @@ void main() {
       expect(ctx.table('items').row(1).val('visible'), false);
     });
   });
+}
+
+class _NoOpBddReporter extends BddReporter {
+  @override
+  Future<void> report() async {}
+}
+
+Future<Object> _captureAsyncError(void Function() action) async {
+  final completer = Completer<Object>();
+
+  await runZonedGuarded(() async {
+    action();
+    await Future<void>.delayed(Duration.zero);
+  }, (error, stackTrace) {
+    if (!completer.isCompleted) {
+      completer.complete(error);
+    }
+  });
+
+  return completer.future;
 }

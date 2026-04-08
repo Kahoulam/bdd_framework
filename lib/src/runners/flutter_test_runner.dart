@@ -33,30 +33,21 @@ extension FlutterTestCode<C> on BddCodeable<C> {
   }
 }
 
-void _testDelegate(
-  String description,
-  Future<void> Function() body, {
-  Timeout? timeout,
-  bool? skip,
-  dynamic tags,
-  Map<String, dynamic>? onPlatform,
-  int? retry,
-  dynamic testOn,
-}) {
+void _testDelegate(TestInvocation invocation) {
   test(
-    description,
+    invocation.description,
     () async {
       if (BddFlutter.ignoreOverflow) _ignoreOverflowErrors();
       try {
-        await body();
+        await invocation.body();
       } finally {
         _cleanTargetPlatformOverride();
       }
     },
-    skip: skip,
-    timeout: timeout,
-    tags: tags,
-    retry: retry,
+    skip: invocation.skip,
+    timeout: invocation.timeout,
+    tags: invocation.tags,
+    retry: invocation.retry,
   );
 }
 

@@ -8,7 +8,32 @@ import '../core.dart';
 /// A function type that represents a code block in a Flutter widget test,
 /// providing access to both the [BddContext] and the [WidgetTester].
 typedef WidgetTestCallback = FutureOr<void> Function(
-    BddContext ctx, WidgetTester tester);
+  BddContext ctx,
+  WidgetTester tester,
+);
+
+/// The widget-test-specific [BddContext] that carries the active [WidgetTester].
+class BddWidgetContext extends BddContext {
+  BddWidgetContext._(
+    BddTableValues example,
+    BddMultipleTableValues tables, {
+    required this.tester,
+  }) : super(example, tables);
+
+  /// Creates a widget-test-aware context from an existing [BddContext].
+  factory BddWidgetContext.from(
+    BddContext context, {
+    required WidgetTester tester,
+  }) {
+    return BddWidgetContext._(
+      context.example,
+      context.tables,
+      tester: tester,
+    );
+  }
+
+  final WidgetTester tester;
+}
 
 /// Extension to enable running Flutter UI tests directly via `testWidgets`.
 ///
@@ -23,16 +48,12 @@ extension FlutterWidgetTestRun on BddRunnable {
       bdd,
       (ctx) async {
         if (testCallback != null) {
-          final tester = Zone.current[#tester] as WidgetTester?;
-          if (tester == null) {
-            throw StateError('WidgetTester not found in context. '
-                'Did you forget to use ".run()" imported from `bdd_flutter_widget_test.dart` at the end of the scenario?');
-          }
-          await testCallback(ctx, tester);
+          await testCallback(ctx, _widgetContextOf(ctx).tester);
         }
       },
       _testDelegate,
       _errorHandler,
+      () => TestWidgetsFlutterBinding.instance is LiveTestWidgetsFlutterBinding,
     );
   }
 }
@@ -48,48 +69,42 @@ extension FlutterWidgetTestCode<C> on BddCodeable<C> {
   /// currently active for the test.
   C code(WidgetTestCallback testCallback) {
     return addCode((ctx) async {
-      final tester = Zone.current[#tester] as WidgetTester?;
-      if (tester == null) {
-        throw StateError('WidgetTester not found in context. '
-            'Did you forget to use ".run()" imported from `bdd_flutter_widget_test.dart` at the end of the scenario?');
-      }
-      await testCallback(ctx, tester);
+      await testCallback(ctx, _widgetContextOf(ctx).tester);
     });
   }
 }
 
-/// A runner that injects the tester into the context.
-void _testDelegate(
-  String description,
-  Future<void> Function() body, {
-  Timeout? timeout,
-  bool? skip,
-  dynamic tags,
-  Map<String, dynamic>? onPlatform,
-  int? retry,
-  dynamic testOn,
-}) {
+void _testDelegate(TestInvocation invocation) {
   testWidgets(
-    description,
+    invocation.description,
     (tester) async {
       if (BddFlutter.ignoreOverflow) _ignoreOverflowErrors();
+      invocation.transformContext?.call(
+        (context) => BddWidgetContext.from(context, tester: tester),
+      );
+
       try {
-        // To pass the tester down to the `CodeRun` context during the execution phase,
-        // we can use a Zone.
-        await runZoned(
-          () async {
-            await body();
-          },
-          zoneValues: {#tester: tester},
-        );
+        await invocation.body();
       } finally {
         _cleanTargetPlatformOverride();
       }
     },
-    skip: skip,
-    timeout: timeout,
-    tags: tags,
-    retry: retry,
+    skip: invocation.skip,
+    timeout: invocation.timeout,
+    tags: invocation.tags,
+    retry: invocation.retry,
+  );
+}
+
+BddWidgetContext _widgetContextOf(BddContext context) {
+  if (context is BddWidgetContext) {
+    return context;
+  }
+
+  throw StateError(
+    'WidgetTester not found in BddContext. '
+    'Did you forget to use ".run()" imported from '
+    '`package:bdd_framework/bdd_flutter_widget_test.dart` at the end of the scenario?',
   );
 }
 
@@ -100,6 +115,10 @@ void _errorHandler(Object error, StackTrace stackTrace) {
     stack: stackTrace,
     stackFilter: _stackFilter,
   );
+  if (TestWidgetsFlutterBinding.instance is LiveTestWidgetsFlutterBinding) {
+    FlutterError.dumpErrorToConsole(errorDetails, forceReport: true);
+    return;
+  }
   reportTestException(errorDetails, "");
 }
 

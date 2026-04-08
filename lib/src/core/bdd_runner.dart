@@ -5,16 +5,37 @@ part of 'bdd_base.dart';
 ///
 /// This allows the [BddRunner] to be decoupled from the specific testing framework,
 /// as the actual testing logic is injected via this function.
-typedef TestDelegate = void Function(
-  String description,
-  Future<void> Function() body, {
-  Timeout? timeout,
-  bool? skip,
-  dynamic tags,
-  Map<String, dynamic>? onPlatform,
-  int? retry,
-  dynamic testOn,
-});
+typedef BddContextTransformer = BddContext Function(BddContext context);
+
+typedef BddContextTransformationHandler = void Function(
+  BddContextTransformer transformContext,
+);
+
+class TestInvocation {
+  const TestInvocation({
+    required this.description,
+    required this.body,
+    this.timeout,
+    this.skip,
+    this.tags,
+    this.onPlatform,
+    this.retry,
+    this.testOn,
+    this.transformContext,
+  });
+
+  final String description;
+  final Future<void> Function() body;
+  final Timeout? timeout;
+  final bool? skip;
+  final dynamic tags;
+  final Map<String, dynamic>? onPlatform;
+  final int? retry;
+  final dynamic testOn;
+  final BddContextTransformationHandler? transformContext;
+}
+
+typedef TestDelegate = void Function(TestInvocation invocation);
 
 /// Orchestrates the execution of BDD tests by connecting BDD scenarios to the
 /// underlying test framework via an injected [TestDelegate].
@@ -30,6 +51,9 @@ class BddRunner {
     CodeRun code,
     TestDelegate testDelegate,
     void Function(Object error, StackTrace stackTrace)? errorHandler,
+    [
+    bool Function()? rethrowAfterHandling,
+  ]
   ) {
     // Add the final implementation code to the BDD framework.
     bdd.addCode(code);
@@ -44,10 +68,22 @@ class BddRunner {
 
     // If there are no examples, run the scenario once.
     if (numberOfExamples == 0) {
-      _runTheTest(bdd, null, testDelegate, errorHandler);
+      _runTheTest(
+        bdd,
+        null,
+        testDelegate,
+        errorHandler,
+        rethrowAfterHandling,
+      );
     } else {
       for (int i = 0; i < numberOfExamples; i++) {
-        _runTheTest(bdd, i, testDelegate, errorHandler);
+        _runTheTest(
+          bdd,
+          i,
+          testDelegate,
+          errorHandler,
+          rethrowAfterHandling,
+        );
       }
     }
   }
@@ -115,6 +151,7 @@ class BddRunner {
     int? exampleNumber,
     TestDelegate testDelegate,
     void Function(Object error, StackTrace stackTrace)? errorHandler,
+    bool Function()? rethrowAfterHandling,
   ) {
     BddReporter.runInfo.totalTestCount++;
 
@@ -128,20 +165,20 @@ class BddRunner {
 
     String _testCountStr = testCountStr(testCount, exampleNumber);
 
+    final example = BddTableValues.from(bdd.exampleRow(exampleNumber));
+    final tables = BddMultipleTableValues.from(bdd.tables());
+    var ctx = BddContext(example, tables);
+
     testDelegate(
-      '$_testCountStr ${bdd.description()}',
-      () async {
+      TestInvocation(
+        description: '$_testCountStr ${bdd.description()}',
+        body: () async {
         currentExecution++;
 
         // Log the test start to console with ANSI colors.
         print((currentExecution == 1)
             ? "${_header(bdd._skip, _testCountStr)}$blue$bddStr$boldOff"
             : "\n${red}Retry $currentExecution.\n$boldOff");
-
-        // Initialize the BDD context with current example values and tables.
-        final example = BddTableValues.from(bdd.exampleRow(exampleNumber));
-        final tables = BddMultipleTableValues.from(bdd.tables());
-        final ctx = BddContext(example, tables);
 
         try {
           // 1) Execute background setups if present.
@@ -175,6 +212,12 @@ class BddRunner {
           }
 
           print(_fail(_testCountStr));
+          if (rethrowAfterHandling?.call() ?? false) {
+            Error.throwWithStackTrace(
+              TestFailure('Test failed. See exception logs above.'),
+              stacktrace,
+            );
+          }
           return;
         }
 
@@ -183,12 +226,15 @@ class BddRunner {
         BddReporter.runInfo.passedCount++;
         print(_footer(_testCountStr));
       },
-      timeout: bdd._timeout != null ? Timeout(bdd._timeout!) : Timeout.none,
-      skip: bdd._skip,
-      tags: bdd._config?.tags,
-      onPlatform: bdd._config?.onPlatform,
-      retry: totalRetries,
-      testOn: bdd._config?.testOn,
+        transformContext: (transformContext) =>
+            ctx = transformContext(ctx),
+        timeout: bdd._timeout != null ? Timeout(bdd._timeout!) : Timeout.none,
+        skip: bdd._skip,
+        tags: bdd._config?.tags,
+        onPlatform: bdd._config?.onPlatform,
+        retry: totalRetries,
+        testOn: bdd._config?.testOn,
+      ),
     );
   }
 

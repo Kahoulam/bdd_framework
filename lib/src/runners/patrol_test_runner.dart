@@ -9,7 +9,33 @@ import '../core.dart';
 /// A function type that represents a code block in a Patrol integration test,
 /// providing access to both the [BddContext] and the [PatrolIntegrationTester].
 typedef PatrolTestCallback = FutureOr<void> Function(
-    BddContext ctx, PatrolIntegrationTester $);
+  BddContext ctx,
+  PatrolIntegrationTester patrolTester,
+);
+
+/// The Patrol-specific [BddContext] that carries the active
+/// [PatrolIntegrationTester].
+class BddPatrolContext extends BddContext {
+  BddPatrolContext._(
+    BddTableValues example,
+    BddMultipleTableValues tables, {
+    required this.patrolTester,
+  }) : super(example, tables);
+
+  /// Creates a Patrol-aware context from an existing [BddContext].
+  factory BddPatrolContext.from(
+    BddContext context, {
+    required PatrolIntegrationTester patrolTester,
+  }) {
+    return BddPatrolContext._(
+      context.example,
+      context.tables,
+      patrolTester: patrolTester,
+    );
+  }
+
+  final PatrolIntegrationTester patrolTester;
+}
 
 /// Extension providing the standard `.run()` method for Patrol BDD tests.
 ///
@@ -25,12 +51,7 @@ extension PatrolTestRun on BddRunnable {
       bdd,
       (ctx) async {
         if (testCallback != null) {
-          final $ = Zone.current[#patrolTester] as PatrolIntegrationTester?;
-          if ($ == null) {
-            throw StateError('PatrolIntegrationTester not found in context. '
-                'Did you forget to use ".run()" imported from `package:bdd_framework/patrol_test.dart` at the end of the scenario?');
-          }
-          await testCallback(ctx, $);
+          await testCallback(ctx, _patrolContextOf(ctx).patrolTester);
         }
       },
       _testDelegate,
@@ -50,45 +71,45 @@ extension PatrolTestCode<T> on BddCodeable<T> {
   /// currently active for the test.
   T code(PatrolTestCallback codeRun) {
     return addCode((ctx) async {
-      final $ = Zone.current[#patrolTester] as PatrolIntegrationTester?;
-      if ($ == null) {
-        throw StateError('PatrolIntegrationTester not found in context. '
-            'Did you forget to use ".run()" imported from `package:bdd_framework/patrol_test.dart` at the end of the scenario?');
-      }
-      await codeRun(ctx, $);
+      await codeRun(ctx, _patrolContextOf(ctx).patrolTester);
     });
   }
 }
 
 /// Internal helper that bridges the [BddRunner] to the Patrol [patrolTest] function.
-void _testDelegate(
-  String description,
-  Future<void> Function() body, {
-  dynamic timeout,
-  bool? skip,
-  dynamic tags,
-  Map<String, dynamic>? onPlatform,
-  int? retry,
-  dynamic testOn,
-}) {
+void _testDelegate(TestInvocation invocation) {
   patrolTest(
-    description,
-    ($) async {
+    invocation.description,
+    (patrolTester) async {
       if (BddPatrol.ignoreOverflow) _ignoreOverflowErrors();
+      invocation.transformContext?.call(
+        (context) => BddPatrolContext.from(
+          context,
+          patrolTester: patrolTester,
+        ),
+      );
+
       try {
-        await runZoned(
-          () async {
-            await body();
-          },
-          zoneValues: {#patrolTester: $},
-        );
+        await invocation.body();
       } finally {
         _cleanTargetPlatformOverride();
       }
     },
-    skip: skip,
-    timeout: timeout,
-    tags: tags,
+    skip: invocation.skip,
+    timeout: invocation.timeout,
+    tags: invocation.tags,
+  );
+}
+
+BddPatrolContext _patrolContextOf(BddContext context) {
+  if (context is BddPatrolContext) {
+    return context;
+  }
+
+  throw StateError(
+    'PatrolIntegrationTester not found in BddContext. '
+    'Did you forget to use ".run()" imported from '
+    '`package:bdd_framework/patrol_test.dart` at the end of the scenario?',
   );
 }
 
