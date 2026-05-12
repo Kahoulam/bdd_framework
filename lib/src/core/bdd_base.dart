@@ -486,14 +486,25 @@ class BddFramework {
     return result;
   }
 
+  String _featureSection(BddConfig config, bool withFeature) =>
+      withFeature ? feature?.toString(config) ?? "" : "";
+
+  String _backgroundSection(BddConfig config, bool withFeature) =>
+      withFeature && feature?.backgroundFramework != null
+          ? config.endOfLineChar + feature!.background.toString(config)
+          : "";
+
+  String _termsSection(BddConfig config) =>
+      toMap(config).join(config.endOfLineChar) + config.endOfLineChar;
+
   @override
   String toString({
     BddConfig config = BddConfig._default,
     bool withFeature = false,
   }) =>
-      (withFeature ? feature?.toString(config) ?? "" : "") +
-      toMap(config).join(config.endOfLineChar) +
-      config.endOfLineChar;
+      _featureSection(config, withFeature) +
+      _backgroundSection(config, withFeature) +
+      _termsSection(config);
 }
 
 class BddScenario extends BddTerm {
